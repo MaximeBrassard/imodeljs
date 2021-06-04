@@ -3,22 +3,17 @@
 * See LICENSE.md in the project root for license terms and full copyright notice.
 *--------------------------------------------------------------------------------------------*/
 import {
-  BeButtonEvent,
-  HitDetail,
   IModelApp,
   NotifyMessageDetails,
   OutputMessagePriority,
-  Pixel,
   ScreenViewport,
-  ViewRect,
   ViewState3d,
 } from "@bentley/imodeljs-frontend";
 import { Easing } from "@bentley/imodeljs-common";
-import { Angle, CurveChainWithDistanceIndex, Point2d, Point3d, Vector3d } from "@bentley/geometry-core";
+import { Angle, CurveChainWithDistanceIndex, Point3d, Vector3d } from "@bentley/geometry-core";
 import { CustomRpcInterface, CustomRpcUtilities } from "../../../common/CustomRpcInterface";
 import { DriveToolConfig } from "./DriveToolConfig";
 import { DistanceDecoration } from "./DistanceDecoration";
-import { RectangleDecoration } from "./RectangleDecoration";
 import { ShapeUtils } from './ShapeUtils';
 import { DriveTool } from './DriveTool'
 
@@ -180,12 +175,13 @@ export class DriveToolManager {
       this._moving = true;
       this.step();
       this._intervalId = setInterval(() => {
-        this.step();
         if (this._autoStopEnabled) {
           if (!this.isTargetVisible()) {
             this.stop();
             const message = new NotifyMessageDetails(OutputMessagePriority.Warning, "Target not visible");
             IModelApp.notifications.outputMessage(message);
+          } else {
+            this.step();
           }
         }
       }, this._intervalTime * 1000);
@@ -194,13 +190,14 @@ export class DriveToolManager {
 
   /**
    * Check the visible depth at the target location and compares it to the actual target distance.
+   * @returns a boolean of wether the target is visible by the camera or not
    */
   public isTargetVisible(): boolean {
     let hit = false;
     if (this._viewport && this._targetPosition) {
       const targetedFromView = this.viewport!.pickNearestVisibleGeometry(this._targetPosition, 1)
       if (targetedFromView) {
-        if (this._viewport?.view.getCenter().distance(this._targetPosition) - (0.1 * this._viewport?.view.getCenter().distance(this._targetPosition)) < this._viewport?.view.getCenter().distance(targetedFromView)) {
+        if (this._viewport?.view.getCenter().distance(this._targetPosition) - (0.05 * this._viewport?.view.getCenter().distance(this._targetPosition)) < this._viewport?.view.getCenter().distance(targetedFromView)) {
           hit = true;
         }
       } else {
@@ -219,14 +216,16 @@ export class DriveToolManager {
       return [new Point3d()];
 
     let position = this.getPositionAtDistance(this._targetDistance);
-    position!.z += DriveToolConfig.targetVerticalOffset;
-    this._targetPosition = position;
 
     if (!position)
       return [new Point3d()];
 
     const direction = position.minus(this._positionOnCurve);
     const vectorDirection = Vector3d.createFrom(direction).normalize();
+    position.z += DriveToolConfig.targetVerticalOffset;
+    this._targetPosition = position;
+    const targetSideStepDirection = vectorDirection?.unitPerpendicularXY();
+    position = position.plus(targetSideStepDirection!.scale(- this._lateralOffset));
 
     if (!vectorDirection)
       return [new Point3d()];
@@ -348,9 +347,9 @@ export class DriveToolManager {
   /**
    * Sets the camera position based on the position on the curve and the offsets.
    * Syncs the camera properties with the viewport.
-   * @private
+   * @public
    */
-  private updateCamera(): void {
+  public updateCamera(): void {
     if (!this._viewport || !this._view)
       return;
 
@@ -366,28 +365,6 @@ export class DriveToolManager {
       animationTime: this._intervalTime * 1000,
       easingFunction: Easing.Linear.None,
     });
-  }
-
-  /**
-   * Get the top left and bottom right corner of the detection zone
-   * @returns object containing the Point2d of the top left corner and the bottom right corner of the
-   */
-  private getDetectionZoneCorners(): { topLeft: Point2d, bottomRight: Point2d } | undefined {
-    if (!this._viewport)
-      return undefined;
-
-    const position = this.getPositionAtDistance(this._targetDistance);
-
-    if (!position)
-      return undefined;
-
-    const clientCenter3d = this._viewport.worldToView(position);
-    const clientCenter = new Point2d(Math.floor(clientCenter3d.x), Math.floor(clientCenter3d.y));
-
-    const halfSide = new Point3d(DriveToolConfig.detectionRectangleWidth / 2, DriveToolConfig.detectionRectangleHeight / 2, 0);
-    const topLeft = clientCenter.minus(halfSide);
-    const bottomRight = clientCenter.plus(halfSide);
-    return { topLeft, bottomRight };
   }
 
   /**

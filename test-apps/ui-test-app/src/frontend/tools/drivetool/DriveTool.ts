@@ -20,7 +20,6 @@ import { ToolItemDef } from "@bentley/ui-framework";
 import { DriveToolProperties } from "./DriveToolProperties";
 import { ColorDef } from "@bentley/imodeljs-common";
 import { DistanceDecoration } from "./DistanceDecoration";
-import { RectangleDecoration } from "./RectangleDecoration";
 import { DriveToolInputManager } from "./DriveToolInputManager";
 
 export class DriveTool extends PrimitiveTool {
@@ -126,6 +125,7 @@ export class DriveTool extends PrimitiveTool {
       case DriveToolProperties.targetDistance.name: this._manager.targetDistance = value; break;
     }
     this.syncAllSettings();
+    this._manager.updateCamera();
     return true;
   }
 
