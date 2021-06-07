@@ -13,6 +13,8 @@ import {
   PrimitiveTool,
   ToolAssistance,
   ToolAssistanceImage,
+  NotifyMessageDetails,
+  OutputMessagePriority,
 } from "@bentley/imodeljs-frontend";
 import { DriveToolManager } from "./DriveToolManager";
 import { DialogItem, DialogPropertySyncItem } from "@bentley/ui-abstract";
@@ -122,7 +124,13 @@ export class DriveTool extends PrimitiveTool {
       case DriveToolProperties.speed.name: this._manager.speed = value / 3.6; break;
       case DriveToolProperties.fov.name: this._manager.fov = value; break;
       case DriveToolProperties.progress.name: this._manager.progress = value / 100; break;
-      case DriveToolProperties.targetDistance.name: this._manager.targetDistance = value; break;
+      case DriveToolProperties.targetDistance.name:
+        if (value >= 0) {
+          this._manager.targetDistance = value; break;
+        } else {
+          const message = new NotifyMessageDetails(OutputMessagePriority.Warning, "Can't set target distance to a negative value");
+          IModelApp.notifications.outputMessage(message);
+        }
     }
     this.syncAllSettings();
     this._manager.updateCamera();
@@ -130,7 +138,7 @@ export class DriveTool extends PrimitiveTool {
   }
 
   /**
-   * Syncs Progress with the UI when values have changed
+   * Syncs Progress with the UI when it has changed
    * @public
    */
   public syncProgress() {
