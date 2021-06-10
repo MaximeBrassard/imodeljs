@@ -183,6 +183,8 @@ export class DriveToolManager {
           } else {
             this.step();
           }
+        } else {
+          this.step();
         }
       }, this._intervalTime * 1000);
     }
@@ -222,7 +224,7 @@ export class DriveToolManager {
 
     const direction = position.minus(this._positionOnCurve);
     const vectorDirection = Vector3d.createFrom(direction).normalize();
-    position.z += DriveToolConfig.targetVerticalOffset;
+    position.z += this.height;
     this._targetPosition = position;
     const targetSideStepDirection = vectorDirection?.unitPerpendicularXY();
     position = position.plus(targetSideStepDirection!.scale(- this._lateralOffset));

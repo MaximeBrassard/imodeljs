@@ -13,6 +13,8 @@ import {
   PrimitiveTool,
   ToolAssistance,
   ToolAssistanceImage,
+  NotifyMessageDetails,
+  OutputMessagePriority,
 } from "@bentley/imodeljs-frontend";
 import { DriveToolManager } from "./DriveToolManager";
 import { DialogItem, DialogPropertySyncItem } from "@bentley/ui-abstract";
@@ -21,6 +23,7 @@ import { DriveToolProperties } from "./DriveToolProperties";
 import { ColorDef } from "@bentley/imodeljs-common";
 import { DistanceDecoration } from "./DistanceDecoration";
 import { DriveToolInputManager } from "./DriveToolInputManager";
+import { DriveToolConfig } from "./DriveToolConfig";
 
 export class DriveTool extends PrimitiveTool {
 
@@ -67,6 +70,14 @@ export class DriveTool extends PrimitiveTool {
 
   public onUnsuspend(): void {
     this.provideToolAssistance();
+  }
+
+  /**
+   * Sends a warning message to the user
+   * @param text Message displayed with warning
+   */
+  private messageInvalid(text: string) {
+    IModelApp.notifications.outputMessage(new NotifyMessageDetails(OutputMessagePriority.Warning, text));
   }
 
   /**
@@ -117,12 +128,48 @@ export class DriveTool extends PrimitiveTool {
   public applyToolSettingPropertyChange(updatedValue: DialogPropertySyncItem): boolean {
     const value = updatedValue.value.value as number;
     switch (updatedValue.propertyName) {
-      case DriveToolProperties.height.name: this._manager.height = value; break;
-      case DriveToolProperties.lateralOffset.name: this._manager.lateralOffset = value; break;
-      case DriveToolProperties.speed.name: this._manager.speed = value / 3.6; break;
-      case DriveToolProperties.fov.name: this._manager.fov = value; break;
-      case DriveToolProperties.progress.name: this._manager.progress = value / 100; break;
-      case DriveToolProperties.targetDistance.name: this._manager.targetDistance = value; break;
+      case DriveToolProperties.height.name:
+        if (this.verifyHeight(value)) {
+          this._manager.height = value; break;
+        } else {
+          this.messageInvalid("Can't set height lateral offset to invalid value, must be between " + DriveToolConfig.heightMin
+            + " and " + DriveToolConfig.heightMax); break;
+        }
+      case DriveToolProperties.lateralOffset.name:
+        if (this.verifyLateralOffset(value)) {
+          this._manager.lateralOffset = value; break;
+        } else {
+          this.messageInvalid("Can't set target lateral offset to invalid value, must be between " + DriveToolConfig.lateralOffsetMin
+            + " and " + DriveToolConfig.lateralOffsetMax); break;
+        }
+      case DriveToolProperties.speed.name:
+        if (this.verifySpeed(value)) {
+          this._manager.speed = value / 3.6; break;
+        } else {
+          this.messageInvalid("Can't set target speed to invalid value, must be between " + (DriveToolConfig.speedMin * DriveToolConfig.speedConverter)
+            + " and " + (DriveToolConfig.speedMax * DriveToolConfig.speedConverter)); break;
+        }
+      case DriveToolProperties.fov.name:
+        if (this.verifyFov(value)) {
+          this._manager.fov = value; break;
+        } else {
+          this.messageInvalid("Can't set target fov to invalid value, must be between " + DriveToolConfig.fovMin
+            + " and " + DriveToolConfig.fovMax); break;
+        }
+      case DriveToolProperties.progress.name:
+        if (this.verifyProgress(value)) {
+          this._manager.progress = value / 100; break;
+        } else {
+          this.messageInvalid("Can't set target progress to invalid value, must be between " + DriveToolConfig.progressMin
+            + " and " + DriveToolConfig.progressMax); break;
+        }
+      case DriveToolProperties.targetDistance.name:
+        if (this.verifyTargetDistance(value)) {
+          this._manager.targetDistance = value; break;
+        } else {
+          this.messageInvalid("Can't set target distance to invalid value, must be between " + DriveToolConfig.targetMinDistance
+            + " and " + DriveToolConfig.targetMaxDistance); break;
+        }
     }
     this.syncAllSettings();
     this._manager.updateCamera();
@@ -130,7 +177,85 @@ export class DriveTool extends PrimitiveTool {
   }
 
   /**
-   * Syncs Progress with the UI when values have changed
+       * Verify if lateral offset passed in parameters is valid based on values in DriveToolConfig
+       * @param value to verify
+       * @returns true if value is valid
+       */
+  private verifyHeight(value: number) {
+    let result = false;
+    if (value >= DriveToolConfig.heightMin && value <= DriveToolConfig.heightMax) {
+      result = true;
+    }
+    return result;
+  }
+
+  /**
+       * Verify if lateral offset passed in parameters is valid based on values in DriveToolConfig
+       * @param value to verify
+       * @returns true if value is valid
+       */
+  private verifyLateralOffset(value: number) {
+    let result = false;
+    if (value >= DriveToolConfig.lateralOffsetMin && value <= DriveToolConfig.lateralOffsetMax) {
+      result = true;
+    }
+    return result;
+  }
+
+  /**
+       * Verify if speed passed in parameters is valid based on values in DriveToolConfig
+       * @param value to verify
+       * @returns true if value is valid
+       */
+  private verifySpeed(value: number) {
+    let result = false;
+    if (value >= (DriveToolConfig.speedMin * DriveToolConfig.speedConverter) && value <= (DriveToolConfig.speedMax * DriveToolConfig.speedConverter)) {
+      result = true;
+    }
+    return result;
+  }
+
+  /**
+     * Verify if fov passed in parameters is valid based on values in DriveToolConfig
+     * @param value to verify
+     * @returns true if value is valid
+     */
+  private verifyFov(value: number) {
+    let result = false;
+    if (value >= DriveToolConfig.fovMin && value <= DriveToolConfig.fovMax) {
+      result = true;
+    }
+    return result;
+  }
+
+  /**
+     * Verify if progress passed in parameters is valid based on values in DriveToolConfig
+     * @param value to verify
+     * @returns true if value is valid
+     */
+  private verifyProgress(value: number) {
+    let result = false;
+    if (value >= DriveToolConfig.progressMin && value <= DriveToolConfig.progressMax) {
+      result = true;
+    }
+    return result;
+  }
+
+  /**
+   * Verify if target distance passed in parameters is valid based on values in DriveToolConfig
+   * @param value to verify
+   * @returns true if value is valid
+   */
+  private verifyTargetDistance(value: number) {
+    let result = false;
+    if (value >= DriveToolConfig.targetMinDistance && value <= DriveToolConfig.targetMaxDistance) {
+      result = true;
+    }
+    return result;
+  }
+
+  /**
+   * Syncs Progress with the UI when it has changed
    * @public
    */
   public syncProgress() {
